@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+BreakBeforeBraces: Linux
+AllowShortIfStatementsOnASingleLine: Always
+IndentWidth: 4
+TabWidth: 4
+UseTab: Always
