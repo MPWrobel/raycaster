@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+extern GLFWwindow *window;
+
 int tileSize = 64;
 
 // clang-format off
@@ -28,7 +30,13 @@ double planeX, planeY;
 double playerAngle = M_PI;
 double speed = 0.03;
 
-void update(GLFWwindow *window)
+void init() { 
+	puts("initializing...");
+	glOrtho(0, 1024, 512, 0, 1, -1);
+}
+void deinit() { puts("deinitializing..."); }
+
+void update()
 {
 	if (glfwGetKey(window, GLFW_KEY_W)) {
 		posX += speed * dirX;
@@ -152,7 +160,7 @@ void drawPlayer(double x, double y)
 			 y + dirY + planeY);
 }
 
-void draw(GLFWwindow *window)
+void draw()
 {
 	glLineWidth(4);
 
@@ -244,49 +252,4 @@ void draw(GLFWwindow *window)
 		drawLineAbs(r * 2, offset, r * 2, wall + offset);
 		// drawLine(ox, oy, rx, ry);
 	}
-}
-
-int main(void)
-{
-	glfwInit();
-
-	glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
-
-	GLFWwindow *window = glfwCreateWindow(1024, 512, "", NULL, NULL);
-	if (!window) {
-		glfwTerminate();
-		return 1;
-	}
-
-	glfwMakeContextCurrent(window);
-
-	glOrtho(0, 1024, 512, 0, 1, -1);
-
-	double previousTime = glfwGetTime();
-	int frameCount = 0;
-	while (!glfwWindowShouldClose(window)) {
-		double currentTime = glfwGetTime();
-		frameCount++;
-
-		if (currentTime - previousTime >= 1.0) {
-			char title[10];
-			sprintf(title, "%d", frameCount);
-			glfwSetWindowTitle(window, title);
-			frameCount = 0;
-			previousTime = currentTime;
-		}
-
-		glfwPollEvents();
-		update(window);
-
-		glClear(GL_COLOR_BUFFER_BIT);
-		draw(window);
-
-		glfwSwapBuffers(window);
-	}
-
-	glfwDestroyWindow(window);
-	glfwTerminate();
-
-	return 0;
 }

@@ -1,13 +1,20 @@
 EXEC=raycaster
 
 CC=clang
-LIBS=`pkg-config glfw3 --libs` -framework OpenGL
-CFLAGS=`pkg-config glfw3 --cflags`
+CFLAGS  = -std=c99 -Wall -Wextra -pedantic
+CFLAGS += -g
+CFLAGS += $(shell pkg-config glfw3 --cflags)
 
-all: build run
+LDFLAGS = $(shell pkg-config glfw3 --libs-only-L)
+LDLIBS  = $(shell pkg-config glfw3 --libs-only-l) -framework OpenGL
 
-build:
-	$(CC) raycaster.c -o $(EXEC) -Wall $(LIBS) $(CFLAGS) -Wno-deprecated -g
+all: raycaster.dylib raycaster
+
+raycaster.dylib: raycaster.c
+	$(CC) $(CFLAGS) -undefined dynamic_lookup -o $@ $^
+
+raycaster: main.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@ $^
 
 run:
 	./$(EXEC)
