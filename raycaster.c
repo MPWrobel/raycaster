@@ -1,255 +1,221 @@
-#include <GLFW/glfw3.h>
-#include <math.h>
+#include <raylib.h>
+#include <raymath.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
 
-extern GLFWwindow *window;
+const int tileSize = 64;
 
-int tileSize = 64;
-
-// clang-format off
-int mapW = 16, mapH = 8;
-char map[] = {
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-	1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1,
-	1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1,
-	1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-	1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-	1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
-	1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+char map[][16] = {
+	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
+	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
+	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1},
+	{1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1},
+	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
-// clang-format on
 
-double plane = 0.5;
-double playerSize = 0.25;
-double posX = 10, posY = 3;
-double dirX, dirY;
-double planeX, planeY;
-double playerAngle = M_PI;
-double speed = 0.03;
+typedef struct {
+	Vector2 position;
+	Vector2 direction;
+	Vector2 plane;
+	Vector2 size;
+	float   speed;
+	float   angle;
+} Player;
 
-void init() { 
+typedef struct {
+	Rectangle src, dest;
+	bool      vertical;
+} Wall;
+
+Texture2D bricks;
+RenderTexture2D debug;
+
+Player player = {
+	.position = {10.00f, 3.00f},
+	.size     = {0.25f,  0.25f},
+	.speed    = 0.03f,
+	.angle    = PI
+};
+
+void
+Init()
+{
 	puts("initializing...");
-	glOrtho(0, 1024, 512, 0, 1, -1);
+	bricks = LoadTexture("bricks.png");
+	debug  = LoadRenderTexture(1024, 512);
 }
-void deinit() { puts("deinitializing..."); }
 
-void update()
+void
+Deinit()
 {
-	if (glfwGetKey(window, GLFW_KEY_W)) {
-		posX += speed * dirX;
-		posY += speed * dirY;
+	puts("deinitializing...");
+	UnloadTexture(bricks);
+	UnloadRenderTexture(debug);
+}
+
+void
+Update()
+{
+	Vector2 verticalMovement   = Vector2Scale(player.direction, player.speed);
+	Vector2 horizontalMovement = {-verticalMovement.y, verticalMovement.x};
+
+	if (IsKeyDown(KEY_W)) {
+		player.position = Vector2Add(player.position, verticalMovement);
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_S)) {
-		posX -= speed * dirX;
-		posY -= speed * dirY;
+	if (IsKeyDown(KEY_S)) {
+		player.position = Vector2Subtract(player.position, verticalMovement);
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_D)) {
-		posX -= speed * dirY;
-		posY += speed * dirX;
+	if (IsKeyDown(KEY_D)) {
+		player.position = Vector2Add(player.position, horizontalMovement);
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_A)) {
-		posX += speed * dirY;
-		posY -= speed * dirX;
+	if (IsKeyDown(KEY_A)) {
+		player.position = Vector2Subtract(player.position, horizontalMovement);
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_LEFT))
-		playerAngle += speed;
+	if (IsKeyDown(KEY_LEFT)) player.angle += player.speed;
 
-	if (glfwGetKey(window, GLFW_KEY_RIGHT))
-		playerAngle -= speed;
+	if (IsKeyDown(KEY_RIGHT)) player.angle -= player.speed;
 
-	if (playerAngle >= 2 * M_PI)
-		playerAngle = 0.01;
+	if (player.angle <= 0) player.angle = 2.0f * PI;
+	else if (player.angle >= 2.0f * PI) player.angle = 0.01f;
 
-	if (playerAngle <= 0)
-		playerAngle = 2 * M_PI;
-
-	dirX = sin(playerAngle);
-	dirY = cos(playerAngle);
-
-	planeX = -cos(playerAngle) * plane;
-	planeY = sin(playerAngle) * plane;
+	player.direction = (Vector2){sinf(player.angle), cosf(player.angle)};
+	player.plane     = (Vector2){-cosf(player.angle), sinf(player.angle)};
 }
 
-void drawRect(double x, double y, double w, double h)
+void
+DrawMap()
 {
-	x *= tileSize;
-	y *= tileSize;
-	w *= tileSize;
-	h *= tileSize;
-
-	glBegin(GL_LINE_LOOP);
-	glVertex2i(x, y);
-	glVertex2i(x + w, y);
-	glVertex2i(x + w, y + h);
-	glVertex2i(x, y + h);
-	glEnd();
-}
-
-void fillRect(double x, double y, double w, double h)
-{
-	x *= tileSize;
-	y *= tileSize;
-	w *= tileSize;
-	h *= tileSize;
-
-	glBegin(GL_QUADS);
-	glVertex2i(x, y);
-	glVertex2i(x + w, y);
-	glVertex2i(x + w, y + h);
-	glVertex2i(x, y + h);
-	glEnd();
-}
-
-void drawLine(double x1, double y1, double x2, double y2)
-{
-	x1 *= tileSize;
-	y1 *= tileSize;
-	x2 *= tileSize;
-	y2 *= tileSize;
-
-	glBegin(GL_LINES);
-	glVertex2i(x1, y1);
-	glVertex2i(x2, y2);
-	glEnd();
-}
-
-void drawLineAbs(double x1, double y1, double x2, double y2)
-{
-	glBegin(GL_LINES);
-	glVertex2i(x1, y1);
-	glVertex2i(x2, y2);
-	glEnd();
-}
-
-void drawGrid()
-{
-	glColor3f(0.3f, 0.3f, 0.3f);
-	for (int y = 0; y < mapH; y++)
-		for (int x = 0; x < mapW; x++)
-			drawRect(x, y, 1, 1);
-}
-
-void drawWalls()
-{
-	glColor3f(1.0f, 1.0f, 1.0f);
-	for (int y = 0; y < mapH; y++)
-		for (int x = 0; x < mapW; x++)
-			if (map[y * mapW + x])
-				drawRect(x, y, 1, 1);
-}
-
-void drawPlayer(double x, double y)
-{
-	glColor3f(1.0f, 1.0f, 0);
-	fillRect(posX, posY, playerSize, playerSize);
-
-	glColor3f(0, 1.0f, 0);
-	drawLine(x, y, x + dirX, y + dirY);
-
-	glColor3f(1.0f, 0, 0);
-	drawLine(x + dirX, y + dirY, x + dirX - planeX,
-			 y + dirY - planeY);
-	drawLine(x + dirX, y + dirY, x + dirX + planeX,
-			 y + dirY + planeY);
-}
-
-void draw()
-{
-	glLineWidth(4);
-
-	drawGrid();
-	drawWalls();
-
-	double po = playerSize / 2;
-	double ox = posX + po, oy = posY + po;
-	drawPlayer(ox, oy);
-
-	double rayCount = 512;
-	for (int r = 0; r <= rayCount; r++) {
-		double rx = 2 * r / rayCount - 1;
-		double rayDirX = dirX + planeX * rx;
-		double rayDirY = dirY + planeY * rx;
-
-		double deltaV = fabs(1 / rayDirX);
-		double deltaH = fabs(1 / rayDirY);
-		// double deltaV = sqrt(1 + ((rayDirY*rayDirY) / (rayDirX*rayDirX)));
-		// double deltaH = sqrt(1 + ((rayDirX*rayDirX) / (rayDirY*rayDirY)));
-		double sideDistV, sideDistH;
-
-		int mapX = ox, mapY = oy;
-		int stepX, stepY;
-
-		//	Moving right
-		if (rayDirX > 0) {
-			stepX = 1;
-			sideDistV = (1 - (ox - mapX)) * deltaV;
+	for (int y = 0; y < sizeof(map); y++) {
+		for (int x = 0; x < sizeof(*map); x++) {
+			Rectangle tile = {x * tileSize, y * tileSize, tileSize, tileSize};
+			DrawRectangleLinesEx(tile, 3.0f, DARKGRAY);
+			if (map[y][x]) DrawRectangleRec(tile, WHITE);
 		}
-		//	Moving left
-		else {
-			stepX = -1;
-			sideDistV = (ox - mapX) * deltaV;
+	}
+}
+
+void
+DrawPlayer()
+{
+	Vector2 player_position = player.position;
+	Vector2 player_size     = player.size;
+	Vector2 player_origin   = Vector2Scale(player.size, 0.5f);
+	Vector2 player_top_left = Vector2Subtract(player.position, player_origin);
+	Vector2 plane_position  = Vector2Add(player.position, player.direction);
+	Vector2 plane_start     = Vector2Subtract(plane_position, player.plane);
+	Vector2 plane_end       = Vector2Add(plane_position, player.plane);
+
+	player_position = Vector2Scale(player_position, tileSize);
+	player_size     = Vector2Scale(player_size, tileSize);
+	player_top_left = Vector2Scale(player_top_left, tileSize);
+	plane_position  = Vector2Scale(plane_position, tileSize);
+	plane_start     = Vector2Scale(plane_start, tileSize);
+	plane_end       = Vector2Scale(plane_end, tileSize);
+
+	DrawRectangleV(player_top_left, player_size, YELLOW);
+	DrawLineV(player_position, plane_position, GREEN);
+	DrawLineV(plane_position, plane_start, RED);
+	DrawLineV(plane_position, plane_end, RED);
+}
+
+void
+Draw()
+{
+	int     rayCount = 1024;
+	Vector2 rays[rayCount];
+	Wall    walls[rayCount];
+
+	for (int i = 0; i < rayCount; i++) {
+		Vector2 skew = Vector2Scale(player.plane, 2.0f * i / rayCount - 1.0f);
+		Vector2 ray_direction = Vector2Add(player.direction, skew);
+
+		Vector2 delta = {fabsf(1.0f / ray_direction.x),
+		                 fabsf(1.0f / ray_direction.y)};
+		Vector2 tile  = {floorf(player.position.x), floorf(player.position.y)};
+		Vector2 edge  = Vector2Subtract(player.position, tile);
+
+		Vector2 distance, step;
+
+		if (ray_direction.x > 0) {
+			step.x     = 1.0f;
+			distance.x = (1 - edge.x) * delta.x;
+		} else {
+			step.x     = -1.0f;
+			distance.x = edge.x * delta.x;
 		}
 
-		//	Moving up
-		if (rayDirY < 0) {
-			stepY = -1;
-			sideDistH = (oy - mapY) * deltaH;
-		}
-		//	Moving down
-		else {
-			stepY = 1;
-			sideDistH = (1 - (oy - mapY)) * deltaH;
+		if (ray_direction.y < 0) {
+			step.y     = -1.0f;
+			distance.y = edge.y * delta.y;
+		} else {
+			step.y     = 1.0f;
+			distance.y = (1.0f - edge.y) * delta.y;
 		}
 
-		bool hit = false;
 		bool vertical = true;
-		while (!hit) {
-			if (sideDistV < sideDistH) {
-				sideDistV += deltaV;
-				mapX += stepX;
+		for (;;) {
+			if (distance.x < distance.y) {
+				distance.x += delta.x;
+				tile.x += step.x;
 				vertical = true;
 			} else {
-				sideDistH += deltaH;
-				mapY += stepY;
+				distance.y += delta.y;
+				tile.y += step.y;
 				vertical = false;
 			}
 
-			if (map[mapY * mapW + mapX])
-				hit = true;
+			if (map[(int)tile.y][(int)tile.x]) break;
 		}
 
-		if (vertical)
-			glColor3f(1.0f, 0, 0);
-		else
-			glColor3f(0, 0, 1.0f);
+		distance = Vector2Subtract(distance, delta);
 
-		// fillRect(mapX, mapY, 1, 1);
+		float   wall_distance = vertical ? distance.x : distance.y;
+		Vector2 ray           = Vector2Scale(ray_direction, wall_distance);
+		Vector2 contact_point = Vector2Add(player.position, ray);
 
-		double ray = sqrt(rayDirX * rayDirX + rayDirY * rayDirY);
-		rayDirX /= ray;
-		rayDirY /= ray;
+		rays[i] = Vector2Add(ray, player.position);
 
-		double dist;
-		if (vertical)
-			dist = sideDistV - deltaV;
-		else
-			dist = sideDistH - deltaH;
+		float wall_height = 1.0f / wall_distance;
+		float wall_offset = (1.0f - wall_height) / 2.0f;
 
-		// drawLine(ox, oy, ox+dist*rayDirX, oy+dist*rayDirY);
+		wall_height *= 512;
+		wall_offset *= 512;
 
-		glLineWidth(3);
-		double wall = 512 / dist;
-		double offset = 512 - wall / 2 - 300;
-		if (wall > 512)
-			wall = 512;
-		drawLineAbs(r * 2, offset, r * 2, wall + offset);
-		// drawLine(ox, oy, rx, ry);
+		Vector2 top    = {i, wall_offset};
+		Vector2 bottom = {i, wall_offset + wall_height};
+
+		int texture_x = (vertical ? contact_point.y : contact_point.x) * tileSize;
+		walls[i].src  = (Rectangle){texture_x, 0.0f, 1.0f, tileSize};
+		walls[i].dest = (Rectangle){top.x, top.y, 1.0f, wall_height};
+		walls[i].vertical = vertical;
 	}
+
+	BeginTextureMode(debug);
+	ClearBackground(BLACK);
+	DrawMap();
+	DrawPlayer();
+	for (int i = 0; i < rayCount; i+=16) {
+		DrawLineV(Vector2Scale(player.position, tileSize),
+				Vector2Scale(rays[i], tileSize), ORANGE);
+	}
+	EndTextureMode();
+
+	BeginDrawing();
+	ClearBackground(BLACK);
+	DrawRectangle(0, 0, 1024, 256, (Color){ 120, 120, 120, 255 });
+	DrawRectangle(0, 256, 1024, 256, (Color){ 50, 50, 50, 255 });
+	for (int i = 0; i < rayCount; i++) {
+		Color color = walls[i].vertical ? WHITE : GRAY;
+		DrawTexturePro(bricks, walls[i].src, walls[i].dest, (Vector2){0}, 0, color);
+	}
+	DrawTextureEx(debug.texture, (Vector2){0}, 0, 0.5, ColorAlpha(WHITE, 0.5));
+	EndDrawing();
 }

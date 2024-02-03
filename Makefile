@@ -1,12 +1,14 @@
 EXEC=raycaster
 
 CC=clang
-CFLAGS  = -std=c99 -Wall -Wextra -pedantic
+CFLAGS  = -std=c99
+# CFLAGS  = -Wall -Wextra -pedantic
 CFLAGS += -g
-CFLAGS += $(shell pkg-config glfw3 --cflags)
+# CFLAGS += -fsanitize=address,undefined
+CFLAGS += $(shell pkg-config raylib --cflags)
 
-LDFLAGS = $(shell pkg-config glfw3 --libs-only-L)
-LDLIBS  = $(shell pkg-config glfw3 --libs-only-l) -framework OpenGL
+LDFLAGS = $(shell pkg-config raylib --libs-only-L)
+LDLIBS  = $(shell pkg-config raylib --libs-only-l)
 
 all: raycaster.dylib raycaster
 
@@ -20,4 +22,4 @@ run:
 	./$(EXEC)
 
 clean:
-	rm $(EXEC)
+	rm $(EXEC) raycaster.dylib

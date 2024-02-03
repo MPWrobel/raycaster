@@ -1,21 +1,19 @@
 #include <dlfcn.h>
 #include <libgen.h>
+#include <raylib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <GLFW/glfw3.h>
 
 typedef void func(void);
 
-GLFWwindow *window;
+static func *Init;
+static func *Deinit;
+static func *Update;
+static func *Draw;
 
-static char *modpath;
-static func *init;
-static func *deinit;
-static func *update;
-static func *draw;
-
-static void *load(char *path)
+static void *
+load(char *path)
 {
 	static void *mod;
 
@@ -26,73 +24,45 @@ static void *load(char *path)
 
 	if (!mod) return mod;
 
-	init   = (func *) dlsym(mod, "init");
-	deinit = (func *) dlsym(mod, "deinit");
-	update = (func *) dlsym(mod, "update");
-	draw   = (func *) dlsym(mod, "draw");
+	Init   = (func *)dlsym(mod, "Init");
+	Deinit = (func *)dlsym(mod, "Deinit");
+	Update = (func *)dlsym(mod, "Update");
+	Draw   = (func *)dlsym(mod, "Draw");
 
 	return mod;
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+int
+main(int argc, char **argv)
 {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) load(modpath);
-}
-
-int main(int argc, char **argv)
-{
-	glfwInit();
-
-	glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
-
-	window = glfwCreateWindow(1024, 512, "", NULL, NULL);
-	if (!window) {
-		glfwTerminate();
-		return 1;
-	}
-
-	glfwMakeContextCurrent(window);
-	glfwSetKeyCallback(window, key_callback);
-
-	char *bindir = dirname(argv[0]);
+	char *bindir  = dirname(argv[0]);
 	char *modname = "raycaster.dylib";
-	modpath = malloc(strlen(bindir) + strlen(modname) + 1);
-	sprintf(modpath, "%s/%s", bindir, modname);
+	char  modpath[strlen(bindir) + strlen(modname) + 2];
+	snprintf(modpath, sizeof(modpath), "%s/%s", bindir, modname);
+
+	InitWindow(1024, 512, "");
+
+	SetTargetFPS(60);
+	SetExitKey(KEY_NULL);
 
 	void *mod = load(modpath);
+	if (Init) Init();
 
-	if (init) init();
-
-	double previousTime = glfwGetTime();
-	int frameCount = 0;
-	while (!glfwWindowShouldClose(window)) {
-		double currentTime = glfwGetTime();
-		frameCount++;
-
-		if (currentTime - previousTime >= 1.0) {
-			char title[10];
-			sprintf(title, "%d", frameCount);
-			glfwSetWindowTitle(window, title);
-			frameCount = 0;
-			previousTime = currentTime;
+	while (!WindowShouldClose()) {
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			mod = load(modpath);
+			if (Deinit) Deinit();
+			if (Init) Init();
 		}
 
-		glfwPollEvents();
-		if (update) update();
-
-		glClear(GL_COLOR_BUFFER_BIT);
-		if (draw) draw();
-
-		glfwSwapBuffers(window);
+		if (Update) Update();
+		if (Draw) Draw();
 	}
 
-	if (deinit) deinit();
-	
+	if (Deinit) Deinit();
 	if (mod) dlclose(mod);
-	free(modpath);
 
-	glfwDestroyWindow(window);
-	glfwTerminate();
+	CloseWindow();
 
 	return 0;
 }
