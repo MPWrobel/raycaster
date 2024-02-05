@@ -36,11 +36,10 @@ int
 main(int argc, char **argv)
 {
 	char *bindir  = dirname(argv[0]);
-	char *modname = "raycaster.dylib";
+	char *modname = "raycaster.so";
 	char  modpath[strlen(bindir) + strlen(modname) + 2];
 	snprintf(modpath, sizeof(modpath), "%s/%s", bindir, modname);
 
-	SetWindowState(FLAG_WINDOW_TOPMOST);
 	InitWindow(1024, 512, "");
 
 	SetTargetFPS(60);
