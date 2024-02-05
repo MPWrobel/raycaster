@@ -1,4 +1,4 @@
-EXEC=raycaster
+EXEC=build/raycaster
 
 CC=clang
 CFLAGS  = -std=c99
@@ -10,16 +10,19 @@ CFLAGS += $(shell pkg-config raylib --cflags)
 LDFLAGS = $(shell pkg-config raylib --libs-only-L)
 LDLIBS  = $(shell pkg-config raylib --libs-only-l)
 
-all: raycaster.dylib raycaster
+all: build build/raycaster.dylib build/raycaster
 
-raycaster.dylib: raycaster.c
+build:
+	mkdir build
+
+build/raycaster.dylib: src/raycaster.c
 	$(CC) $(CFLAGS) -undefined dynamic_lookup -o $@ $^
 
-raycaster: main.c
+build/raycaster: src/main.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@ $^
 
 run:
 	./$(EXEC)
 
 clean:
-	rm $(EXEC) raycaster.dylib
+	rm -rf build

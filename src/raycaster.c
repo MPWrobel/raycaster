@@ -2,7 +2,6 @@
 #include <raymath.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <unistd.h>
 
 const int tileSize = 64;
 
@@ -45,7 +44,7 @@ void
 Init()
 {
 	puts("initializing...");
-	bricks = LoadTexture("bricks.png");
+	bricks = LoadTexture("assets/bricks.png");
 	debug  = LoadRenderTexture(1024, 512);
 }
 

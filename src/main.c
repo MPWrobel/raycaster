@@ -40,6 +40,7 @@ main(int argc, char **argv)
 	char  modpath[strlen(bindir) + strlen(modname) + 2];
 	snprintf(modpath, sizeof(modpath), "%s/%s", bindir, modname);
 
+	SetWindowState(FLAG_WINDOW_TOPMOST);
 	InitWindow(1024, 512, "");
 
 	SetTargetFPS(60);
