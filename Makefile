@@ -1,6 +1,5 @@
-EXEC=build/raycaster
+EXEC = build/raycaster
 
-CC=clang
 CFLAGS  = -std=c99
 # CFLAGS  = -Wall -Wextra -pedantic
 CFLAGS += -g
@@ -27,10 +26,10 @@ build:
 	mkdir build
 
 build/raycaster.so: src/raycaster.c
-	$(CC) $(CFLAGS) $(DYNAMIC) -o $@ $^
+	$(CC) $^ -o $@ $(CFLAGS) $(DYNAMIC)
 
 build/raycaster: src/main.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@ $^
+	$(CC) $^ -o $@ $(CFLAGS) $(LDFLAGS) $(LDLIBS)
 
 run:
 	./$(EXEC)
