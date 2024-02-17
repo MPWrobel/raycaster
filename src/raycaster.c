@@ -5,16 +5,14 @@
 
 const int tileSize = 64;
 
-char map[][16] = {
-	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
-	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
-	{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1},
-	{1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1},
-	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-};
+typedef struct {
+	unsigned char north : 2;
+	unsigned char south : 2;
+	unsigned char east  : 2;
+	unsigned char west  : 2;
+} Tile;
+
+Tile tile = {.north = 3};
 
 typedef struct {
 	Vector2 position;
@@ -27,11 +25,29 @@ typedef struct {
 
 typedef struct {
 	Rectangle src, dest;
-	bool      vertical;
+	Color     tint;
+	int       texture;
 } Wall;
 
-Texture2D bricks;
+Texture2D       textures[3];
 RenderTexture2D debug;
+
+
+#define xn {0, 0, 0, 0}
+#define xb {1, 1, 1, 1}
+#define xw {2, 2, 2, 2}
+#define hw {2, 2, 1, 1}
+#define vw {1, 1, 2, 2}
+Tile map[][16] = {
+	{xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb},
+	{xb, xn, xn, xb, xn, xn, xn, xn, xn, xn, xn, xn, xw, xb, xn, xb},
+	{xb, xn, xn, xb, xn, xn, xn, xn, xn, xn, xn, xn, vw, xb, xn, xb},
+	{xb, xn, xn, xb, xn, xn, xn, xn, xn, xn, xn, xn, xn, xn, xn, xb},
+	{xb, xn, xn, xn, xn, xn, vw, xn, xn, xn, xn, xb, xb, xb, xb, xb},
+	{xb, xn, xn, xn, hw, xn, xn, xn, xn, xn, xn, xb, xn, xn, xn, xb},
+	{xb, xn, xn, xn, xn, xn, xn, xn, xn, xn, xn, xb, xn, xn, xn, xb},
+	{xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb, xb},
+};
 
 Player player = {
 	.position = {10.00f, 3.00f},
@@ -44,15 +60,18 @@ void
 Init()
 {
 	puts("initializing...");
-	bricks = LoadTexture("assets/bricks.png");
-	debug  = LoadRenderTexture(1024, 512);
+	textures[1] = LoadTexture("assets/bricks.png");
+	textures[2] = LoadTexture("assets/wood.png");
+	debug       = LoadRenderTexture(1024, 512);
 }
 
 void
 Deinit()
 {
 	puts("deinitializing...");
-	UnloadTexture(bricks);
+	for (int i = 1; i < sizeof(textures) / sizeof(*textures); i++) {
+		UnloadTexture(textures[i]);
+	}
 	UnloadRenderTexture(debug);
 }
 
@@ -92,11 +111,11 @@ Update()
 void
 DrawMap()
 {
-	for (int y = 0; y < sizeof(map); y++) {
-		for (int x = 0; x < sizeof(*map); x++) {
+	for (int y = 0; y < sizeof(map) / sizeof(*map); y++) {
+		for (int x = 0; x < sizeof(*map) / sizeof(**map); x++) {
 			Rectangle tile = {x * tileSize, y * tileSize, tileSize, tileSize};
 			DrawRectangleLinesEx(tile, 3.0f, DARKGRAY);
-			if (map[y][x]) DrawRectangleRec(tile, WHITE);
+			if (map[y][x].north) DrawRectangleRec(tile, WHITE);
 		}
 	}
 }
@@ -171,7 +190,7 @@ Draw()
 				vertical = false;
 			}
 
-			if (map[(int)tile.y][(int)tile.x]) break;
+			if (map[(int)tile.y][(int)tile.x].north) break;
 		}
 
 		distance = Vector2Subtract(distance, delta);
@@ -192,28 +211,47 @@ Draw()
 		Vector2 bottom = {i, wall_offset + wall_height};
 
 		int texture_x = (vertical ? contact_point.y : contact_point.x) * tileSize;
-		walls[i].src  = (Rectangle){texture_x, 0.0f, 1.0f, tileSize};
-		walls[i].dest = (Rectangle){top.x, top.y, 1.0f, wall_height};
-		walls[i].vertical = vertical;
+		walls[i].src     = (Rectangle){texture_x, 0.0f, 1.0f, tileSize};
+		walls[i].dest    = (Rectangle){top.x, top.y, 1.0f, wall_height};
+		if (vertical) {
+			walls[i].tint  = WHITE;
+			if (contact_point.x <= tile.x) {
+				// if (i == 512) puts("west");
+				walls[i].texture = map[(int)tile.y][(int)tile.x].west;
+			} else {
+				// if (i == 512) puts("east");
+				walls[i].texture = map[(int)tile.y][(int)tile.x].east;
+			}
+		} else {
+			walls[i].tint  = GRAY;
+			if (contact_point.y <= tile.y) {
+				// if (i == 512) puts("south");
+				walls[i].texture = map[(int)tile.y][(int)tile.x].south;
+			} else {
+				// if (i == 512) puts("north");
+				walls[i].texture = map[(int)tile.y][(int)tile.x].north;
+			}
+		}
 	}
 
 	BeginTextureMode(debug);
 	ClearBackground(BLACK);
 	DrawMap();
 	DrawPlayer();
-	for (int i = 0; i < rayCount; i+=16) {
+	for (int i = 0; i < rayCount; i += 16) {
+		// if (i != 512) continue;
 		DrawLineV(Vector2Scale(player.position, tileSize),
-				Vector2Scale(rays[i], tileSize), ORANGE);
+		          Vector2Scale(rays[i], tileSize), ORANGE);
 	}
 	EndTextureMode();
 
 	BeginDrawing();
 	ClearBackground(BLACK);
-	DrawRectangle(0, 0, 1024, 256, (Color){ 120, 120, 120, 255 });
-	DrawRectangle(0, 256, 1024, 256, (Color){ 50, 50, 50, 255 });
+	DrawRectangle(0, 0, 1024, 256, (Color){120, 120, 120, 255});
+	DrawRectangle(0, 256, 1024, 256, (Color){50, 50, 50, 255});
 	for (int i = 0; i < rayCount; i++) {
-		Color color = walls[i].vertical ? WHITE : GRAY;
-		DrawTexturePro(bricks, walls[i].src, walls[i].dest, (Vector2){0}, 0, color);
+		Texture2D texture = textures[walls[i].texture];
+		DrawTexturePro(texture, walls[i].src, walls[i].dest, (Vector2){0}, 0, walls[i].tint);
 	}
 	DrawTextureEx(debug.texture, (Vector2){0}, 0, 0.5, ColorAlpha(WHITE, 0.5));
 	EndDrawing();
